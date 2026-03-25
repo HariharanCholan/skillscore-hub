@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { dummyStudents } from "@/lib/data";
+import { useEffect, useState } from "react";
 import { calculateScore } from "@/lib/scoring";
 import { useAuth } from "@/lib/auth-context";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -8,116 +7,183 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Code, Trophy, Target } from "lucide-react";
 
+/* =========================
+   TYPES
+========================= */
+
+type Student = {
+  name: string;
+  registerNumber: string;
+  department: string;
+  internalMarks: number;
+  attendance: number;
+  skills: Record<string, number>;
+  problemSolving: {
+    problemsSolved: number;
+    contestParticipation: number;
+    rating: number;
+  };
+  achievements: string[];
+};
+
+type BackendUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  score: number;
+};
+
+/* =========================
+   COMPONENT
+========================= */
+
 const StudentDashboard = () => {
   const { user } = useAuth();
-  // For demo, use first student's data
-  const [student] = useState(dummyStudents[0]);
+  const [student, setStudent] = useState<Student | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    fetch("http://localhost:5000/users")
+      .then((res) => res.json())
+      .then((data) => {
+        const users = data as BackendUser[];
+
+        const current = users.find((u) => u.email === user.email);
+
+        if (current) {
+          setStudent({
+            name: current.name,
+            registerNumber: "N/A",
+            department: "N/A",
+
+            // ✅ Required for scoring
+            internalMarks: 75,
+            attendance: 85,
+
+            skills: {
+              coding: 70,
+              communication: 80,
+            },
+
+            problemSolving: {
+              problemsSolved: 50,
+              contestParticipation: 5,
+              rating: 1200,
+            },
+
+            achievements: [],
+          });
+        }
+      })
+      .catch((err) => console.error(err));
+  }, [user]);
+
+  /* =========================
+     LOADING
+  ========================= */
+  if (!student) {
+    return <div className="p-6">Loading...</div>;
+  }
+
+  /* =========================
+     SCORE
+  ========================= */
   const score = calculateScore(student);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {/* HEADER */}
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome, {user?.name || student.name}</h1>
-          <p className="text-muted-foreground text-sm">{student.registerNumber} · {student.department}</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            Welcome, {student.name}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {student.registerNumber} · {student.department}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="lg:col-span-1">
+          {/* SCORE */}
+          <Card>
             <CardHeader>
-              <CardTitle className="text-base">Employment Readiness Score</CardTitle>
+              <CardTitle>Employment Readiness Score</CardTitle>
             </CardHeader>
             <CardContent className="flex justify-center">
               <ScoreDisplay score={score} />
             </CardContent>
           </Card>
 
+          {/* DETAILS */}
           <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            {/* ACADEMICS */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-primary" /> Academics
+              <CardHeader>
+                <CardTitle className="flex gap-2">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  Academics
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Internal Marks</span>
-                  <span className="font-semibold text-foreground">{student.internalMarks}/100</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-primary rounded-full h-2" style={{ width: `${student.internalMarks}%` }} />
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Attendance</span>
-                  <span className="font-semibold text-foreground">{student.attendance}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-primary rounded-full h-2" style={{ width: `${student.attendance}%` }} />
-                </div>
+              <CardContent>
+                <p>Marks: {student.internalMarks}</p>
+                <p>Attendance: {student.attendance}%</p>
               </CardContent>
             </Card>
 
+            {/* SKILLS */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Target className="w-4 h-4 text-primary" /> Skills
+              <CardHeader>
+                <CardTitle className="flex gap-2">
+                  <Target className="w-4 h-4 text-primary" />
+                  Skills
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {Object.entries(student.skills).map(([key, value]) => (
-                  <div key={key}>
-                    <div className="flex justify-between mb-1">
-                      <span className="text-sm text-muted-foreground capitalize">{key}</span>
-                      <span className="text-sm font-semibold text-foreground">{value}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-primary rounded-full h-2" style={{ width: `${value}%` }} />
-                    </div>
-                  </div>
+              <CardContent>
+                {Object.entries(student.skills).map(([k, v]) => (
+                  <p key={k}>
+                    {k}: {v}%
+                  </p>
                 ))}
               </CardContent>
             </Card>
 
+            {/* PROBLEM SOLVING */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Code className="w-4 h-4 text-primary" /> Problem Solving
+              <CardHeader>
+                <CardTitle className="flex gap-2">
+                  <Code className="w-4 h-4 text-primary" />
+                  Problem Solving
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Problems Solved</span>
-                  <span className="font-semibold text-foreground">{student.problemSolving.problemsSolved}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Contests</span>
-                  <span className="font-semibold text-foreground">{student.problemSolving.contestParticipation}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Rating</span>
-                  <span className="font-semibold font-mono text-foreground">{student.problemSolving.rating}</span>
-                </div>
+              <CardContent>
+                <p>Solved: {student.problemSolving.problemsSolved}</p>
+                <p>Contests: {student.problemSolving.contestParticipation}</p>
+                <p>Rating: {student.problemSolving.rating}</p>
               </CardContent>
             </Card>
 
+            {/* ACHIEVEMENTS */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-primary" /> Achievements
+              <CardHeader>
+                <CardTitle className="flex gap-2">
+                  <Trophy className="w-4 h-4 text-primary" />
+                  Achievements
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {student.achievements.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {student.achievements.map((a, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">{a}</Badge>
-                    ))}
-                  </div>
+                  student.achievements.map((a, i) => (
+                    <Badge key={i}>{a}</Badge>
+                  ))
                 ) : (
-                  <p className="text-sm text-muted-foreground">No achievements recorded</p>
+                  <p>No achievements</p>
                 )}
               </CardContent>
             </Card>
+
           </div>
         </div>
       </div>
