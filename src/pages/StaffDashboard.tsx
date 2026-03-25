@@ -4,15 +4,19 @@ import { StudentData } from "@/lib/types";
 import { calculateScore } from "@/lib/scoring";
 import DashboardLayout from "@/components/DashboardLayout";
 import StudentForm from "@/components/StudentForm";
+import StudentDetailView from "@/components/StudentDetailView";
 import ScoreDisplay from "@/components/ScoreDisplay";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, TrendingUp, AlertTriangle, CheckCircle } from "lucide-react";
+import { Users, TrendingUp, AlertTriangle, CheckCircle, Pencil } from "lucide-react";
 import { toast } from "sonner";
+
+type View = "list" | "detail" | "edit";
 
 const StaffDashboard = () => {
   const [students, setStudents] = useState<StudentData[]>(dummyStudents);
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [view, setView] = useState<View>("list");
 
   const scores = students.map((s) => ({ student: s, score: calculateScore(s) }));
   const avgScore = Math.round(scores.reduce((sum, s) => sum + s.score.total, 0) / scores.length);
@@ -21,19 +25,46 @@ const StaffDashboard = () => {
 
   const handleSave = (updated: StudentData) => {
     setStudents((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    setSelectedStudent(null);
+    setView("detail");
     toast.success("Student data updated successfully");
   };
 
-  if (selectedStudent) {
-    const student = students.find((s) => s.id === selectedStudent);
-    if (!student) return null;
+  const goBack = () => {
+    setSelectedStudent(null);
+    setView("list");
+  };
+
+  const student = selectedStudent ? students.find((s) => s.id === selectedStudent) : null;
+
+  if (view === "edit" && student) {
     return (
       <DashboardLayout>
-        <Button variant="ghost" onClick={() => setSelectedStudent(null)} className="mb-4">
-          ← Back to Students
+        <Button variant="ghost" onClick={() => setView("detail")} className="mb-4">
+          ← Back to Details
         </Button>
         <StudentForm student={student} onSave={handleSave} />
+      </DashboardLayout>
+    );
+  }
+
+  if (view === "detail" && student) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Button variant="ghost" onClick={goBack} className="mb-2">
+                ← Back to Students
+              </Button>
+              <h2 className="text-xl font-semibold text-foreground">{student.name}</h2>
+              <p className="text-sm text-muted-foreground">{student.registerNumber} · {student.department}</p>
+            </div>
+            <Button onClick={() => setView("edit")} className="gap-2">
+              <Pencil className="w-4 h-4" /> Edit Data
+            </Button>
+          </div>
+          <StudentDetailView student={student} />
+        </div>
       </DashboardLayout>
     );
   }
@@ -111,7 +142,7 @@ const StaffDashboard = () => {
                 <div
                   key={student.id}
                   className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => setSelectedStudent(student.id)}
+                  onClick={() => { setSelectedStudent(student.id); setView("detail"); }}
                 >
                   <div>
                     <p className="font-medium text-foreground">{student.name}</p>
